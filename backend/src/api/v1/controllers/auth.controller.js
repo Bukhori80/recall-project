@@ -48,7 +48,7 @@ export const registerCustomer = async (req, res) => {
     let churnRisk;
     try {
       
-        const churnRes = await axios.post('http://127.0.0.1:5000/predict', {
+        const churnRes = await axios.post(process.env.ML_SERVICE_URL + '/predict', {
             // Pastikan field ini dikirim semua!
             avg_data_usage_gb, // (Opsional bagi churn model ini, tapi kirim saja)
             monthly_spend, 
@@ -83,7 +83,7 @@ export const registerCustomer = async (req, res) => {
 
     // 4. AUTO-GENERATE REKOMENDASI (Dengan Mapping yang BENAR)
 try {
-        const recoRes = await axios.post('http://127.0.0.1:5000/recommend', {
+        const recoRes = await axios.post(process.env.ML_SERVICE_URL +'/recommend', {
             // ... data input ...
             avg_data_usage_gb, monthly_spend, pct_video_usage, travel_score,
             avg_call_duration, sms_freq, topup_freq, complaint_count,
