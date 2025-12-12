@@ -1,0 +1,5 @@
+{
+  "name": "Recall - AI Telco Dashboard",
+  "description": "A personalized telecommunications recommendation engine using AI to analyze usage behavior and suggest optimal plans.",
+  "requestFramePermissions": []
+}

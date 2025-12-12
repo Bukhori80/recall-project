@@ -1,0 +1,2408 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "RECALL (Recommendation & Churn Analysis Learning Lab)",
+    "version": "1.0.0",
+    "description": "Dokumentasi API lengkap untuk Proyek RECALL dengan Tema Telco - Product Recommendation Offer based on Customer Behavior dari Asah dengan kode A25-CS019. \n\n**Fitur Utama:**\n1. **Smart Register:** Otomatis mendeteksi risiko churn & memberikan rekomendasi awal.\n2. **AI Recommendation:** Menggunakan Model Machine Learning V2 untuk personalisasi paket.\n3. **Product Mapping:** Mengubah output AI menjadi produk nyata (Netflix, Roaming, iPhone 15).\n\n**Catatan Frontend:**\n- Gunakan `redirect_url` pada tombol 'Beli'/'Lihat'.\n- `offer_type` berguna untuk mengelompokkan tampilan (misal: Tab Roaming, Tab Promo).\n\n**Autentikasi:**\n- Gunakan JWT Bearer Token pada header `Authorization` untuk endpoint yang dilindungi.\n\n**Kontak:**\n- Untuk pertanyaan lebih lanjut, hubungi tim pengembang proyek."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api/v1",
+      "description": "Local Development Server"
+    },
+    {
+      "url": "https://api-recallbackend.com/api/v1",
+      "description": "Production Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Registrasi & Login (Admin & Customer)"
+    },
+    {
+      "name": "Recommendation",
+      "description": "Fitur AI: Generate & Action"
+    },
+    {
+      "name": "Customer",
+      "description": "Data Profil & Lokasi"
+    },
+    {
+      "name": "Product",
+      "description": "Manajemen Katalog Produk"
+    },
+    {
+      "name": "Chatbot",
+      "description": "Endpoint Layanan Chatbot"
+    },
+    {
+      "name": "Report",
+      "description": "Endpoint Laporan & Agregasi Data"
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Login Admin dashboard untuk mendapatkan token JWT",
+        "description": "Endpoint untuk autentikasi admin. Digunakan untuk mengakses dashboard admin dan manajemen sistem. Tidak memerlukan token JWT (endpoint publik).",
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "admin@telco.com",
+                    "description": "Email admin yang terdaftar"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "password123",
+                    "description": "Password admin"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil, mengembalikan JWT token dan data admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "token": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3M2U0YTJiNmYiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3MzM4OTI3NjV9.abc123",
+                      "description": "JWT Token yang harus disimpan dan dikirim pada header Authorization untuk request berikutnya"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestErrorResponse"
+          },
+          "401": {
+            "description": "Email atau password salah",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel401"
+                },
+                "example": {
+                  "status": "error",
+                  "message": "Email atau password salah"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/customer/register": {
+      "post": {
+        "summary": "Register Customer Baru (+ Auto AI Recommend)",
+        "description": "Mendaftarkan user baru. Sistem akan otomatis:\n1. Menghitung Churn Risk.\n2. Membuat 1 Rekomendasi Produk awal (Cold Start Strategy).",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "user_baru_01"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "rahasia123"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "user@mail.com"
+                  },
+                  "device_brand": {
+                    "type": "string",
+                    "enum": [
+                      "Samsung",
+                      "Apple",
+                      "Xiaomi",
+                      "Oppo",
+                      "Vivo",
+                      "Other"
+                    ],
+                    "example": "Samsung"
+                  },
+                  "plan_type": {
+                    "type": "string",
+                    "enum": [
+                      "Prepaid",
+                      "Postpaid"
+                    ],
+                    "example": "Prepaid"
+                  },
+                  "avg_data_usage_gb": {
+                    "type": "number",
+                    "example": 12.5,
+                    "description": "Rata-rata penggunaan data (GB/bulan)"
+                  },
+                  "monthly_spend": {
+                    "type": "number",
+                    "example": 75000,
+                    "description": "Pengeluaran rata-rata (Rupiah)"
+                  },
+                  "pct_video_usage": {
+                    "type": "number",
+                    "example": 0.65,
+                    "description": "Persentase kuota untuk video (0.0 - 1.0)"
+                  },
+                  "travel_score": {
+                    "type": "number",
+                    "example": 0.2,
+                    "description": "Seberapa sering user keluar kota/negeri (0.0 - 1.0)"
+                  },
+                  "avg_call_duration": {
+                    "type": "number",
+                    "example": 15,
+                    "description": "Rata-rata durasi telepon (menit)"
+                  },
+                  "sms_freq": {
+                    "type": "number",
+                    "example": 5,
+                    "description": "Frekuensi SMS per bulan"
+                  },
+                  "topup_freq": {
+                    "type": "number",
+                    "example": 3,
+                    "description": "Frekuensi isi pulsa per bulan"
+                  },
+                  "complaint_count": {
+                    "type": "number",
+                    "example": 0,
+                    "description": "Jumlah keluhan CS bulan ini"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Berhasil Register",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestErrorResponse"
+          }
+        }
+      }
+    },
+    "/auth/customer/login": {
+      "post": {
+        "summary": "Login Customer",
+        "description": "Endpoint untuk autentikasi customer. Mengembalikan JWT token dan data profil customer termasuk churn risk score. Endpoint publik yang tidak memerlukan autentikasi.",
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "user_1",
+                    "description": "Username customer yang terdaftar"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "123456",
+                    "description": "Password customer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login Sukses & Dapat Token serta data customer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestErrorResponse"
+          },
+          "401": {
+            "description": "Username atau password salah",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel401"
+                },
+                "example": {
+                  "status": "error",
+                  "message": "Username atau password salah"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recommendations/{recommendationId}": {
+      "get": {
+        "summary": "Ambil Data Rekomendasi berdasarkan ID",
+        "description": "Mengambil detail rekomendasi berdasarkan ID rekomendasi yang diberikan.",
+        "tags": [
+          "Recommendation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recommendationId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "6932c015d5a465022aacb081"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil mendapatkan rekomendasi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Berhasil Mendapatkan rekomendasi"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/RecommendationItem"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/recommendations/{customerId}/generate-ai": {
+      "post": {
+        "summary": "TRIGGER MANUAL: Minta AI buat rekomendasi baru",
+        "description": "Digunakan jika user menekan tombol 'Refresh Promo' atau Admin ingin generate ulang.",
+        "tags": [
+          "Recommendation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "C99281"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rekomendasi Berhasil Dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Rekomendasi berhasil dibuat"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/RecommendationItem"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/recommendations/{recommendationId}/click": {
+      "post": {
+        "summary": "CATAT ENGAGEMENT: User klik tombol 'Beli'",
+        "description": "Frontend WAJIB panggil ini saat user klik promo. Sistem akan mencatat engagement (+1 score) dan mengembalikan link redirect.",
+        "tags": [
+          "Recommendation"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recommendationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Klik Tercatat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "redirect_url": {
+                      "type": "string",
+                      "example": "https://www.netflix.com/id"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/recommendations": {
+      "post": {
+        "summary": "Membuat rekomendasi dummy (untuk testing)",
+        "tags": [
+          "Recommendation"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "example": "C00001"
+                  },
+                  "type": {
+                    "type": "string",
+                    "example": "DATA_BOOSTER"
+                  },
+                  "offer_name": {
+                    "type": "string",
+                    "example": "Paket Data 10GB"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rekomendasi berhasil dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Recommendation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/recommendations/{customerId}/send-adaptive": {
+      "post": {
+        "summary": "Memicu notifikasi adaptif (Fitur 3)",
+        "tags": [
+          "Recommendation"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "C00001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notifikasi berhasil dikirim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Notifikasi adaptif berhasil dikirim."
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "recommendation_id": {
+                          "type": "string",
+                          "example": "673e4f..."
+                        },
+                        "email_sent": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "push_sent": {
+                          "type": "boolean",
+                          "example": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/customers": {
+      "get": {
+        "summary": "Mengambil daftar pelanggan (dgn pagination & search)",
+        "description": "Mengambil daftar semua customer dengan fitur pagination dan pencarian. Dilindungi dengan middleware `protect` - bisa diakses oleh admin dan customer yang sudah login. Berguna untuk dashboard admin atau pencarian customer.",
+        "tags": [
+          "Customer"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            },
+            "description": "Nomor halaman untuk pagination"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Jumlah data per halaman (max 100)"
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Teks pencarian untuk customer_id atau email"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar pelanggan berhasil diambil dengan informasi pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Customer"
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "example": 20,
+                          "description": "Total jumlah customer"
+                        },
+                        "page": {
+                          "type": "integer",
+                          "example": 1,
+                          "description": "Halaman saat ini"
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "example": 2,
+                          "description": "Total jumlah halaman"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      },
+      "post": {
+        "summary": "Membuat customer baru (untuk admin)",
+        "description": "Membuat customer baru secara manual oleh admin. Endpoint ini dilindungi dengan middleware `adminOnly` - hanya bisa diakses oleh admin. Berbeda dengan registrasi customer yang otomatis menghitung churn risk.",
+        "tags": [
+          "Customer"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "customer_id",
+                  "email"
+                ],
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "example": "C00021",
+                    "description": "ID unik untuk customer (format: C + angka)"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "customer.baru@mail.com",
+                    "description": "Email customer"
+                  },
+                  "plan_type": {
+                    "type": "string",
+                    "enum": [
+                      "Prepaid",
+                      "Postpaid"
+                    ],
+                    "example": "Prepaid",
+                    "description": "Tipe paket langganan"
+                  },
+                  "profile": {
+                    "$ref": "#/components/schemas/CustomerProfile"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Customer berhasil dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "description": "Akses ditolak - hanya admin yang bisa membuat customer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Akses ditolak. Hanya admin yang dapat mengakses endpoint ini."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/nearby": {
+      "get": {
+        "summary": "Mencari customer terdekat (Geomap)",
+        "description": "Mencari customer dalam radius tertentu dari koordinat yang diberikan menggunakan MongoDB geospatial query. Endpoint ini dilindungi dengan middleware `adminOnly` - hanya bisa diakses oleh admin. Berguna untuk fitur geomap dashboard admin.",
+        "tags": [
+          "Customer"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lng",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": -180,
+              "maximum": 180,
+              "example": 106.827
+            },
+            "description": "Longitude (bujur) lokasi pusat pencarian"
+          },
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": -90,
+              "maximum": 90,
+              "example": -6.175
+            },
+            "description": "Latitude (lintang) lokasi pusat pencarian"
+          },
+          {
+            "in": "query",
+            "name": "dist",
+            "schema": {
+              "type": "integer",
+              "default": 1000,
+              "minimum": 1,
+              "example": 5000
+            },
+            "description": "Radius pencarian dalam meter (default: 1000m/1km)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar customer dalam radius yang ditentukan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "example": 2,
+                      "description": "Jumlah customer yang ditemukan"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Customer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "description": "Akses ditolak - hanya admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Akses ditolak. Hanya admin yang dapat mengakses endpoint ini."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/roaming-list": {
+      "get": {
+        "summary": "Mengambil daftar customer roaming (Geomap)",
+        "description": "Mengambil daftar customer yang memiliki travel_score >= 0.5, yang mengindikasikan mereka sering bepergian dan berpotensi membutuhkan paket roaming. Endpoint ini dilindungi dengan middleware `adminOnly` - hanya bisa diakses oleh admin. Berguna untuk targeting campaign roaming.",
+        "tags": [
+          "Customer"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar customer yang sering traveling (travel_score >= 0.5)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "example": 6,
+                      "description": "Jumlah customer roaming"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Customer"
+                      },
+                      "description": "Array customer dengan travel_score >= 0.5"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "description": "Akses ditolak - hanya admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Akses ditolak. Hanya admin yang dapat mengakses endpoint ini."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/{customerId}": {
+      "get": {
+        "summary": "Ambil Detail User & List Rekomendasi",
+        "description": "Endpoint utama untuk Halaman Home/Profile. Berisi data profil + array rekomendasi aktif.",
+        "tags": [
+          "Customer"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data Lengkap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "customer_id": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "recommendations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Customer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Meng-update data customer (parsial)",
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "C00001"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "device_brand": {
+                    "type": "string",
+                    "example": "iPhone"
+                  },
+                  "profile": {
+                    "type": "object",
+                    "properties": {
+                      "monthly_spend": {
+                        "type": "number",
+                        "example": 850000
+                      },
+                      "avg_data_usage_gb": {
+                        "type": "number",
+                        "example": 35
+                      },
+                      "pct_video_usage": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.65
+                      },
+                      "avg_call_duration": {
+                        "type": "number",
+                        "example": 150
+                      },
+                      "sms_freq": {
+                        "type": "number",
+                        "example": 10
+                      },
+                      "topup_freq": {
+                        "type": "number",
+                        "example": 2
+                      },
+                      "travel_score": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.3
+                      },
+                      "churn_risk": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.15
+                      },
+                      "engagement_score": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.3
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Customer berhasil di-update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Menghapus data customer",
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "C00001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer berhasil dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Customer C00001 berhasil dihapus."
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/location": {
+      "patch": {
+        "summary": "Meng-update lokasi (dari aplikasi mobile)",
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "C00001"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "longitude": {
+                    "type": "number",
+                    "example": 106.827172
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "example": -6.175392
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lokasi berhasil di-update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lokasi C00001 berhasil diperbarui."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/register-fcm": {
+      "patch": {
+        "summary": "Mendaftarkan FCM Token (dari aplikasi mobile)",
+        "tags": [
+          "Customer"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "customerId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "C00001"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "example": "cKq...A:APA91bF-O...Y-3"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM Token berhasil terdaftar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "FCM Token berhasil terdaftar"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "summary": "Ambil Semua Produk (Katalog)",
+        "description": "Mengambil daftar semua produk yang tersedia dengan opsi filter berdasarkan kategori. Endpoint ini dilindungi dengan middleware `protect` - bisa diakses oleh admin dan customer yang sudah login. Produk ini yang akan dimapping dengan output AI recommendation.",
+        "tags": [
+          "Product"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Data Booster",
+                "Device Upgrade Offer",
+                "Family Plan Offer",
+                "General Offer",
+                "Retention Offer",
+                "Roaming Pass",
+                "Streaming Partner Pack",
+                "Top-up Promo",
+                "Voice Bundle",
+                "SMS Bundle"
+              ]
+            },
+            "description": "Filter produk berdasarkan kategori tertentu"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar produk berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Product"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      },
+      "post": {
+        "summary": "Tambah Produk Baru (Admin)",
+        "description": "Membuat produk baru di katalog. Endpoint ini dilindungi dengan middleware `adminOnly` - hanya bisa diakses oleh admin. Produk yang dibuat akan tersedia untuk dimapping dengan output AI recommendation.",
+        "tags": [
+          "Product"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Product"
+              },
+              "example": {
+                "name": "Paket Data Super 100GB",
+                "description": "Paket data unlimited dengan kuota 100GB + streaming 4K",
+                "category": "Data Booster",
+                "price": 150000,
+                "ml_label": "Data Booster Premium",
+                "image_url": "https://example.com/product-image.jpg",
+                "redirect_url": "https://my.telkomsel.com/paket-data-super",
+                "isActive": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Produk berhasil dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Product"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "description": "Akses ditolak - hanya admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Akses ditolak. Hanya admin yang dapat mengakses endpoint ini."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "summary": "Detail Produk",
+        "tags": [
+          "Product"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Produk",
+        "tags": [
+          "Product"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Hapus Produk",
+        "tags": [
+          "Product"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/chatbot/message": {
+      "post": {
+        "summary": "Mengirim pesan ke chatbot (Fitur 4)",
+        "description": "Endpoint untuk berinteraksi dengan chatbot AI yang dapat menjawab pertanyaan customer dan memberikan informasi tentang rekomendasi produk. Endpoint ini dilindungi dengan middleware `protect` - bisa diakses customer yang sudah login. Chatbot akan memberikan respons berdasarkan profil dan rekomendasi customer.",
+        "tags": [
+          "Chatbot"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "customerId",
+                  "message"
+                ],
+                "properties": {
+                  "customerId": {
+                    "type": "string",
+                    "example": "C00001",
+                    "description": "ID customer yang mengirim pesan"
+                  },
+                  "message": {
+                    "type": "string",
+                    "example": "Halo, ada rekomendasi paket untuk saya?",
+                    "description": "Pesan yang dikirim ke chatbot"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Balasan dari chatbot berhasil digenerate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "customerId": {
+                      "type": "string",
+                      "example": "C00001"
+                    },
+                    "reply": {
+                      "type": "string",
+                      "example": "Halo C00001! Kebetulan kami punya paket Data Booster 50GB yang cocok untuk Anda. Dengan penggunaan data Anda yang tinggi, paket ini akan sangat membantu!",
+                      "description": "Respon dari chatbot yang dipersonalisasi berdasarkan profil customer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/reports/churn": {
+      "get": {
+        "summary": "Laporan agregat Churn (Fitur 5)",
+        "description": "Mendapatkan statistik aggregat churn risk berdasarkan segmentasi customer (Low, Medium, High). Endpoint ini dilindungi dengan middleware `adminOnly` - hanya bisa diakses oleh admin. Berguna untuk dashboard analytics dan monitoring churn.",
+        "tags": [
+          "Report"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data laporan churn berdasarkan segmentasi risk (Array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "segment": {
+                            "type": "string",
+                            "enum": [
+                              "Low",
+                              "Medium",
+                              "High"
+                            ],
+                            "example": "Low",
+                            "description": "Segmentasi churn risk: Low (< 0.3), Medium (0.3-0.6), High (> 0.6)"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 10,
+                            "description": "Jumlah customer dalam segmen ini"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          },
+          "403": {
+            "description": "Akses ditolak - hanya admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Akses ditolak. Hanya admin yang dapat mengakses endpoint ini."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/recommendations": {
+      "get": {
+        "summary": "Laporan agregat Rekomendasi (Fitur 5)",
+        "tags": [
+          "Report"
+        ],
+        "responses": {
+          "200": {
+            "description": "Data laporan rekomendasi (Array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "type": "string",
+                            "example": "PENDING"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 3
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/reports/usage": {
+      "get": {
+        "summary": "Laporan agregat Penggunaan (Fitur 5)",
+        "tags": [
+          "Report"
+        ],
+        "responses": {
+          "200": {
+            "description": "Data laporan penggunaan (Array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "segment": {
+                            "type": "string",
+                            "example": "High"
+                          },
+                          "totalCustomers": {
+                            "type": "integer",
+                            "example": 6
+                          },
+                          "avgDataUsage": {
+                            "type": "number",
+                            "example": 65.83
+                          },
+                          "avgMonthlySpend": {
+                            "type": "number",
+                            "example": 820000
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/reports/dashboard": {
+      "get": {
+        "summary": "SUPER-ENDPOINT: Mengambil semua data agregat dashboard",
+        "tags": [
+          "Report"
+        ],
+        "responses": {
+          "200": {
+            "description": "Objek data agregat untuk semua chart dashboard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "churnStatus": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "recoStatus": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "recoType": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "topChurnFactors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "churnPerSegment": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "topDevices": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "planType": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "offerSentHistory": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "example": {
+                        "churnStatus": [
+                          {
+                            "segment": "Low",
+                            "count": 10
+                          },
+                          {
+                            "segment": "Medium",
+                            "count": 5
+                          }
+                        ],
+                        "recoStatus": [
+                          {
+                            "_id": "PENDING",
+                            "count": 3
+                          },
+                          {
+                            "_id": "SENT",
+                            "count": 5
+                          }
+                        ],
+                        "recoType": [
+                          {
+                            "type": "CHURN_PREVENTION",
+                            "count": 3
+                          },
+                          {
+                            "type": "UPSELL",
+                            "count": 2
+                          }
+                        ],
+                        "topChurnFactors": [
+                          {
+                            "factor": "Price sensitive",
+                            "count": 3
+                          },
+                          {
+                            "factor": "High complaint count",
+                            "count": 2
+                          }
+                        ],
+                        "churnPerSegment": [
+                          {
+                            "segment": "High",
+                            "avgChurnRisk": 0.4
+                          },
+                          {
+                            "segment": "Low",
+                            "avgChurnRisk": 0.1
+                          }
+                        ],
+                        "topDevices": [
+                          {
+                            "device": "Samsung",
+                            "count": 4
+                          },
+                          {
+                            "device": "iPhone",
+                            "count": 4
+                          }
+                        ],
+                        "planType": [
+                          {
+                            "plan": "Prepaid",
+                            "count": 14
+                          },
+                          {
+                            "plan": "Postpaid",
+                            "count": 6
+                          }
+                        ],
+                        "offerSentHistory": [
+                          {
+                            "date": "2025-11-12",
+                            "count": 3
+                          },
+                          {
+                            "date": "2025-11-13",
+                            "count": 2
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedErrorResponse"
+          }
+        }
+      }
+    },
+    "/reports/ai-performance": {
+      "get": {
+        "summary": "Dashboard Statistik & Proyeksi Revenue",
+        "description": "Endpoint utama untuk halaman Dashboard Admin. Menampilkan metrik bisnis dan kinerja teknis AI.",
+        "tags": [
+          "Report"
+        ],
+        "responses": {
+          "200": {
+            "description": "Data Statistik",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStats"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "673e4a2b6f..."
+          },
+          "name": {
+            "type": "string",
+            "example": "Admin Telco"
+          },
+          "email": {
+            "type": "string",
+            "example": "admin@telco.com"
+          },
+          "role": {
+            "type": "string",
+            "example": "admin"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1Ni..."
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "username": {
+                "type": "string",
+                "example": "budi_santoso"
+              },
+              "customer_id": {
+                "type": "string",
+                "example": "C99281"
+              },
+              "churn_risk": {
+                "type": "number",
+                "example": 0.25,
+                "description": "Skor risiko (0.0 - 1.0). > 0.6 Butuh perhatian."
+              }
+            }
+          }
+        }
+      },
+      "CustomerProfile": {
+        "type": "object",
+        "properties": {
+          "avg_data_usage_gb": {
+            "type": "number",
+            "example": 50
+          },
+          "pct_video_usage": {
+            "type": "number",
+            "example": 60
+          },
+          "avg_call_duration": {
+            "type": "number",
+            "example": 300
+          },
+          "sms_freq": {
+            "type": "number",
+            "example": 5
+          },
+          "monthly_spend": {
+            "type": "number",
+            "example": 800000
+          },
+          "topup_freq": {
+            "type": "number",
+            "example": 0
+          },
+          "travel_score": {
+            "type": "number",
+            "example": 0.8
+          },
+          "complaint_count": {
+            "type": "number",
+            "example": 0
+          },
+          "usage_intensity": {
+            "type": "string",
+            "example": "450.5"
+          },
+          "engagement_score": {
+            "type": "number",
+            "example": 4.5
+          },
+          "value_segment": {
+            "type": "string",
+            "example": "High"
+          },
+          "data_user_type": {
+            "type": "string",
+            "example": "Heavy"
+          },
+          "churn_risk": {
+            "type": "number",
+            "example": 0.1
+          },
+          "churn_factors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Loyal customer"
+            ]
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "673e4a..."
+          },
+          "customer_id": {
+            "type": "string",
+            "example": "C00001"
+          },
+          "email": {
+            "type": "string",
+            "example": "high_value_low@mail.com"
+          },
+          "plan_type": {
+            "type": "string",
+            "enum": [
+              "Prepaid",
+              "Postpaid"
+            ]
+          },
+          "device_brand": {
+            "type": "string",
+            "example": "Samsung"
+          },
+          "fcm_token": {
+            "type": "string",
+            "example": "cKq...A:APA91bF-O...Y-3"
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "example": "Point"
+              },
+              "coordinates": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "example": [
+                  106.827172,
+                  -6.175392
+                ]
+              }
+            }
+          },
+          "profile": {
+            "$ref": "#/components/schemas/CustomerProfile"
+          },
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "ID Rekomendasi"
+                },
+                {
+                  "$ref": "#/components/schemas/Recommendation"
+                }
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Recommendation": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "673e4f..."
+          },
+          "customer": {
+            "type": "string",
+            "description": "Customer _id",
+            "example": "673e4a..."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ROAMING",
+              "DATA_BOOSTER",
+              "CHURN_PREVENTION",
+              "UPSELL",
+              "GENERAL"
+            ],
+            "example": "UPSELL"
+          },
+          "offer_name": {
+            "type": "string",
+            "example": "Paket Platinum 100GB"
+          },
+          "offer_details": {
+            "type": "string",
+            "example": "Upgrade ke paket platinum kami"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SENT",
+              "CLICKED",
+              "ACCEPTED",
+              "REJECTED"
+            ],
+            "example": "PENDING"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RecommendationItem": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "65b21..."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Roaming Pass",
+              "Data Booster",
+              "Device Upgrade Offer",
+              "Family Plan Offer",
+              "General Offer",
+              "Retention Offer",
+              "Streaming Partner Pack",
+              "Top-up Promo",
+              "Voice Bundle",
+              "SMS Bundle"
+            ],
+            "description": "Kategori penawaran (Sesuai output ML)."
+          },
+          "offer_name": {
+            "type": "string",
+            "example": "Roaming Global Platinum"
+          },
+          "offer_details": {
+            "type": "string",
+            "example": "Akses data di 100+ negara prioritas."
+          },
+          "image_url": {
+            "type": "string",
+            "example": "https://placehold.co/600x400/purple/gold?text=Roaming+Platinum"
+          },
+          "redirect_url": {
+            "type": "string",
+            "example": "https://my.telkomsel.com/roaming"
+          },
+          "confidence_score": {
+            "type": "number",
+            "example": 92.5,
+            "description": "Tingkat keyakinan AI (0-100%)."
+          },
+          "status": {
+            "type": "string",
+            "example": "PENDING"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ErrorModel400": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "Input tidak valid"
+          }
+        }
+      },
+      "ErrorModel401": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "Akses ditolak. Token tidak valid."
+          }
+        }
+      },
+      "ErrorModel404": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "Data tidak ditemukan"
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "Kuota Sultan 50GB"
+          },
+          "description": {
+            "type": "string",
+            "example": "Streaming 4K sepuasnya."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "Data Booster",
+              "Device Upgrade Offer",
+              "Family Plan Offer",
+              "General Offer",
+              "Retention Offer",
+              "Roaming Pass",
+              "Streaming Partner Pack",
+              "Top-up Promo",
+              "Voice Bundle",
+              "SMS Bundle"
+            ]
+          },
+          "price": {
+            "type": "number",
+            "example": 100000
+          },
+          "ml_label": {
+            "type": "string",
+            "example": "Data Booster Premium",
+            "description": "Label mapping dari Python ML"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "redirect_url": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "DashboardStats": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total_users": {
+                "type": "integer",
+                "example": 150
+              },
+              "total_recommendations": {
+                "type": "integer",
+                "example": 300
+              },
+              "high_risk_users": {
+                "type": "integer",
+                "example": 12,
+                "description": "User dengan Churn Risk > 0.7"
+              },
+              "avg_model_confidence": {
+                "type": "string",
+                "example": "85.4%"
+              },
+              "projected_monthly_revenue": {
+                "type": "integer",
+                "example": 15000000,
+                "description": "Estimasi pendapatan berdasarkan confidence score"
+              }
+            }
+          },
+          "top_products": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequestErrorResponse": {
+        "description": "Input tidak valid",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorModel400"
+            }
+          }
+        }
+      },
+      "UnauthorizedErrorResponse": {
+        "description": "Akses ditolak. Token tidak valid.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorModel401"
+            }
+          }
+        }
+      },
+      "NotFoundErrorResponse": {
+        "description": "Data tidak ditemukan",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorModel404"
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

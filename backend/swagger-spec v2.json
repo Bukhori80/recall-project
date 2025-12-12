@@ -1,0 +1,1005 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "RECALL (Recommendation & Churn Analysis Learning Lab)",
+    "version": "1.0.0",
+    "description": "Dokumentasi API lengkap untuk Proyek RECALL dengan Tema Telco - Product Recommendation Offer based on Customer Behavior dari Asah dengan kode A25-CS019. \n\n**Fitur Utama:**\n1. **Smart Register:** Otomatis mendeteksi risiko churn & memberikan rekomendasi awal.\n2. **AI Recommendation:** Menggunakan Model Machine Learning V2 untuk personalisasi paket.\n3. **Product Mapping:** Mengubah output AI menjadi produk nyata (Netflix, Roaming, iPhone 15).\n\n**Catatan Frontend:**\n- Gunakan `redirect_url` pada tombol 'Beli'/'Lihat'.\n- `offer_type` berguna untuk mengelompokkan tampilan (misal: Tab Roaming, Tab Promo).\n\n**Autentikasi:**\n- Gunakan JWT Bearer Token pada header `Authorization` untuk endpoint yang dilindungi.\n\n**Kontak:**\n- Untuk pertanyaan lebih lanjut, hubungi tim pengembang proyek."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api/v1",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "673e4a2b6f..." },
+          "name": { "type": "string", "example": "Admin Telco" },
+          "email": { "type": "string", "example": "admin@telco.com" },
+          "role": { "type": "string", "example": "admin" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "success" },
+          "token": { "type": "string", "example": "eyJhbGciOiJIUzI1Ni..." },
+          "data": {
+            "type": "object",
+            "properties": {
+              "username": { "type": "string", "example": "budi_santoso" },
+              "customer_id": { "type": "string", "example": "C99281" },
+              "churn_risk": { "type": "number", "example": 0.25, "description": "Skor risiko (0.0 - 1.0). > 0.6 Butuh perhatian." }
+            }
+          }
+        }
+      },
+      "CustomerProfile": {
+        "type": "object",
+        "properties": {
+          "avg_data_usage_gb": { "type": "number", "example": 50 },
+          "pct_video_usage": { "type": "number", "example": 60 },
+          "avg_call_duration": { "type": "number", "example": 300 },
+          "sms_freq": { "type": "number", "example": 5 },
+          "monthly_spend": { "type": "number", "example": 800000 },
+          "topup_freq": { "type": "number", "example": 0 },
+          "travel_score": { "type": "number", "example": 0.8 },
+          "complaint_count": { "type": "number", "example": 0 },
+          "usage_intensity": { "type": "string", "example": "450.5" },
+          "engagement_score": { "type": "number", "example": 4.5 },
+          "value_segment": { "type": "string", "example": "High" },
+          "data_user_type": { "type": "string", "example": "Heavy" },
+          "churn_risk": { "type": "number", "example": 0.1 },
+          "churn_factors": { "type": "array", "items": { "type": "string" }, "example": ["Loyal customer"] }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "673e4a..." },
+          "customer_id": { "type": "string", "example": "C00001" },
+          "email": { "type": "string", "example": "high_value_low@mail.com" },
+          "plan_type": { "type": "string", "enum": ["Prepaid", "Postpaid"] },
+          "device_brand": { "type": "string", "example": "Samsung" },
+          "fcm_token": { "type": "string", "example": "cKq...A:APA91bF-O...Y-3" },
+          "location": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "example": "Point" },
+              "coordinates": { "type": "array", "items": { "type": "number" }, "example": [106.827172, -6.175392] }
+            }
+          },
+          "profile": { "$ref": "#/components/schemas/CustomerProfile" },
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                { "type": "string", "description": "ID Rekomendasi" },
+                { "$ref": "#/components/schemas/Recommendation" }
+              ]
+            }
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Recommendation": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "673e4f..." },
+          "customer": { "type": "string", "description": "Customer _id", "example": "673e4a..." },
+          "type": { "type": "string", "enum": ["ROAMING", "DATA_BOOSTER", "CHURN_PREVENTION", "UPSELL", "GENERAL"], "example": "UPSELL" },
+          "offer_name": { "type": "string", "example": "Paket Platinum 100GB" },
+          "offer_details": { "type": "string", "example": "Upgrade ke paket platinum kami" },
+          "status": { "type": "string", "enum": ["PENDING", "SENT", "CLICKED", "ACCEPTED", "REJECTED"], "example": "PENDING" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RecommendationItem": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "65b21..." },
+          "type": { 
+            "type": "string", 
+            "enum": ["ROAMING", "DATA_BOOSTER", "CHURN_PREVENTION", "UPSELL", "GENERAL"],
+            "description": "Kategori penawaran untuk sorting/filtering di UI."
+          },
+          "offer_name": { "type": "string", "example": "Roaming Asia 7 Hari" },
+          "offer_details": { "type": "string", "example": "Internet lancar di Singapore, Malaysia, Thailand." },
+          "image_url": { "type": "string", "example": "https://placehold.co/600x400/purple/white?text=Roaming+Asia" },
+          "redirect_url": { "type": "string", "example": "https://my.telkomsel.com/roaming" },
+          "confidence_score": { 
+             "type": "number", 
+             "example": 92.5, 
+             "description": "Tingkat kecocokan AI (0-100%). Frontend bisa pakai ini untuk badge 'Best Match'." 
+          },
+
+          "status": { "type": "string", "example": "PENDING" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ErrorModel400": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "error" },
+          "message": { "type": "string", "example": "Input tidak valid" }
+        }
+      },
+      "ErrorModel401": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "error" },
+          "message": { "type": "string", "example": "Akses ditolak. Token tidak valid." }
+        }
+      },
+      "ErrorModel404": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "error" },
+          "message": { "type": "string", "example": "Data tidak ditemukan" }
+        }
+      },
+    "Product": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "example": "Roaming Global Platinum" },
+          "description": { "type": "string" },
+          "category": { "type": "string", "enum": ["ROAMING", "DATA_BOOSTER", "UPSELL", "GENERAL", "CHURN_PREVENTION"] },
+          "price": { "type": "number", "example": 350000 },
+          "ml_label": { "type": "string", "example": "Roaming Pass Premium", "description": "Kunci mapping output ML" },
+          "image_url": { "type": "string" },
+          "isActive": { "type": "boolean", "default": true }
+        }
+      }
+    },
+    "responses": {
+      "BadRequestErrorResponse": {
+        "description": "Input tidak valid",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorModel400"
+            }
+          }
+        }
+      },
+      "UnauthorizedErrorResponse": {
+        "description": "Akses ditolak. Token tidak valid.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorModel401"
+            }
+          }
+        }
+      },
+      "NotFoundErrorResponse": {
+        "description": "Data tidak ditemukan",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorModel404"
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Registrasi & Login (Admin & Customer)" },
+    { "name": "Recommendation", "description": "Fitur AI: Generate & Action" },
+    { "name": "Customer", "description": "Data Profil & Lokasi" },
+    { "name": "Chatbot", "description": "Endpoint Layanan Chatbot" },
+    { "name": "Report", "description": "Endpoint Laporan & Agregasi Data" }
+    
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Login Admin dashboard untuk mendapatkan token JWT",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "admin@telco.com" },
+                  "password": { "type": "string", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiInR5c..." },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+"/auth/customer/register": {
+      "post": {
+        "summary": "Register Customer Baru (+ Auto AI Recommend)",
+        "description": "Mendaftarkan user baru. Sistem akan otomatis:\n1. Menghitung Churn Risk.\n2. Membuat 1 Rekomendasi Produk awal (Cold Start Strategy).",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "user_baru_01" },
+                  "password": { "type": "string", "example": "rahasia123" },
+                  "email": { "type": "string", "example": "user@mail.com" },
+                  "device_brand": { "type": "string", "enum": ["Samsung", "Apple", "Xiaomi", "Oppo", "Vivo", "Other"], "example": "Samsung" },
+                  "plan_type": { "type": "string", "enum": ["Prepaid", "Postpaid"], "example": "Prepaid" },
+                  "avg_data_usage_gb": { "type": "number", "example": 12.5, "description": "Rata-rata penggunaan data (GB/bulan)" },
+                  "monthly_spend": { "type": "number", "example": 75000, "description": "Pengeluaran rata-rata (Rupiah)" },
+                  "pct_video_usage": { "type": "number", "example": 0.65, "description": "Persentase kuota untuk video (0.0 - 1.0)" },
+                  "travel_score": { "type": "number", "example": 0.2, "description": "Seberapa sering user keluar kota/negeri (0.0 - 1.0)" },
+                  "avg_call_duration": { "type": "number", "example": 15.0, "description": "Rata-rata durasi telepon (menit)" },
+                  "sms_freq": { "type": "number", "example": 5, "description": "Frekuensi SMS per bulan" },
+                  "topup_freq": { "type": "number", "example": 3, "description": "Frekuensi isi pulsa per bulan" },
+                  "complaint_count": { "type": "number", "example": 0, "description": "Jumlah keluhan CS bulan ini" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Berhasil Register",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestErrorResponse" }
+        }
+      }
+    },
+   "/auth/customer/login": {
+      "post": {
+        "summary": "Login Customer",
+        "tags": ["Auth"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "user_1" },
+                  "password": { "type": "string", "example": "123456" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login Sukses & Dapat Token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } }
+        },
+          "400": { "$ref": "#/components/responses/BadRequestErrorResponse" }
+        }
+      
+    },
+    "/recommendations/{recommendationId}": {
+      "get": {
+        "summary": "Ambil Data Rekomendasi berdasarkan ID",
+        "description": "Mengambil detail rekomendasi berdasarkan ID rekomendasi yang diberikan.",
+        "tags": ["Recommendation"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "in": "path", "name": "recommendationId", "required": true, "schema": { "type": "string", "example": "6932c015d5a465022aacb081" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil mendapatkan rekomendasi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "message": { "type": "string", "example": "Berhasil Mendapatkan rekomendasi" },
+                    "data": { "$ref": "#/components/schemas/RecommendationItem" }
+                  }
+                }
+              }
+            }
+          }
+        },
+          "404": { "description": "Rekomendasi tidak ditemukan" },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+    },
+    "/recommendations/{customerId}/generate-ai": {
+      "post": {
+        "summary": "TRIGGER MANUAL: Minta AI buat rekomendasi baru",
+        "description": "Digunakan jika user menekan tombol 'Refresh Promo' atau Admin ingin generate ulang.",
+        "tags": ["Recommendation"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "in": "path", "name": "customerId", "required": true, "schema": { "type": "string", "example": "C99281" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rekomendasi Berhasil Dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "message": { "type": "string", "example": "Rekomendasi berhasil dibuat" },
+                    "data": { "$ref": "#/components/schemas/RecommendationItem" }
+                  }
+                }
+              }
+            }
+          }
+        },
+          "404": { "description": "Rekomendasi tidak ditemukan" },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+    },
+    "/recommendations/{recommendationId}/click": {
+      "post": {
+        "summary": "CATAT ENGAGEMENT: User klik tombol 'Beli'",
+        "description": "Frontend WAJIB panggil ini saat user klik promo. Sistem akan mencatat engagement (+1 score) dan mengembalikan link redirect.",
+        "tags": ["Recommendation"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "in": "path", "name": "recommendationId", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Klik Tercatat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "redirect_url": { "type": "string", "example": "https://www.netflix.com/id" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers": {
+      "get": {
+        "summary": "Mengambil daftar pelanggan (dgn pagination & search)",
+        "tags": ["Customer"],
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "type": "integer", "default": 1 }, "description": "Nomor halaman" },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "default": 10 }, "description": "Jumlah data per halaman" },
+          { "in": "query", "name": "search", "schema": { "type": "string" }, "description": "Teks pencarian (ID atau email)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar pelanggan berhasil diambil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Customer" } },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer", "example": 20 },
+                        "page": { "type": "integer", "example": 1 },
+                        "totalPages": { "type": "integer", "example": 2 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      },
+      "post": {
+        "summary": "Membuat customer baru (untuk admin)",
+        "tags": ["Customer"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": { "type": "string", "example": "C00021" },
+                  "email": { "type": "string", "example": "customer.baru@mail.com" },
+                  "plan_type": { "type": "string", "example": "Prepaid" },
+                  "profile": { "$ref": "#/components/schemas/CustomerProfile" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Customer berhasil dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": { "$ref": "#/components/schemas/Customer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/customers/nearby": {
+      "get": {
+        "summary": "Mencari customer terdekat (Geomap)",
+        "tags": ["Customer"],
+        "parameters": [
+          { "in": "query", "name": "lng", "required": true, "schema": { "type": "number", "example": 106.827 } },
+          { "in": "query", "name": "lat", "required": true, "schema": { "type": "number", "example": -6.175 } },
+          { "in": "query", "name": "dist", "schema": { "type": "integer", "default": 1000 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar customer terdekat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "count": { "type": "integer", "example": 2 },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Customer" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/customers/roaming-list": {
+    "get": {
+      "summary": "Mengambil daftar customer roaming (Geomap)",
+      "tags": ["Customer"],
+      "responses": {
+        "200": {
+          "description": "Daftar customer roaming (travel_score >= 0.5)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "example": "success" },
+                  "count": { "type": "integer", "example": 6 },
+                  "data": { "type": "array", "items": { "$ref": "#/components/schemas/Customer" } }
+                }
+              }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+      }
+    }
+  },
+    "/customers/{customerId}": {
+      "get": {
+        "summary": "Ambil Detail User & List Rekomendasi",
+        "description": "Endpoint utama untuk Halaman Home/Profile. Berisi data profil + array rekomendasi aktif.",
+        "tags": ["Customer"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "in": "path", "name": "customerId", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data Lengkap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "customer_id": { "type": "string" },
+                    "username": { "type": "string" },
+                    "recommendations": { 
+                      "type": "array", 
+                      "items": { "$ref": "#/components/schemas/Customer" } 
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFoundErrorResponse" },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      },
+      "patch": {
+        "summary": "Meng-update data customer (parsial)",
+        "tags": ["Customer"],
+        "parameters": [
+          { "in": "path", "name": "customerId", "required": true, "schema": { "type": "string", "example": "C00001" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "device_brand": { "type": "string", "example": "iPhone" },
+                  "profile": {
+                    "type": "object",
+                    "properties": {
+                      "monthly_spend": { "type": "number", "example": 850000 },
+                      "avg_data_usage_gb": { "type": "number", "example": 35 },
+                      "pct_video_usage": {  "type": "float", "example": 0.65 },
+                      "avg_call_duration": {  "type": "number", "example": 150 },
+                      "sms_freq": { "type": "number", "example": 10 },
+                      "topup_freq": { "type": "number", "example": 2 },
+                      "travel_score": { "type": "float", "example": 0.3 },
+                      "churn_risk": { "type": "float", "example": 0.15 },
+                      "engagement_score": { "type": "float", "example": 0.3 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Customer berhasil di-update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": { "$ref": "#/components/schemas/Customer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFoundErrorResponse" },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      },
+      "delete": {
+        "summary": "Menghapus data customer",
+        "tags": ["Customer"],
+        "parameters": [
+          { "in": "path", "name": "customerId", "required": true, "schema": { "type": "string", "example": "C00001" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer berhasil dihapus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "message": { "type": "string", "example": "Customer C00001 berhasil dihapus." },
+                    "data": { "$ref": "#/components/schemas/Customer" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFoundErrorResponse" },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/customers/{customerId}/location": {
+      "patch": {
+        "summary": "Meng-update lokasi (dari aplikasi mobile)",
+        "tags": ["Customer"],
+        "parameters": [
+          { "in": "path", "name": "customerId", "required": true, "schema": { "type": "string", "example": "C00001" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "longitude": { "type": "number", "example": 106.827172 },
+                  "latitude": { "type": "number", "example": -6.175392 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lokasi berhasil di-update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "message": { "type": "string", "example": "Lokasi C00001 berhasil diperbarui." }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/customers/{customerId}/register-fcm": {
+      "patch": {
+        "summary": "Mendaftarkan FCM Token (dari aplikasi mobile)",
+        "tags": ["Customer"],
+        "parameters": [
+          { "in": "path", "name": "customerId", "required": true, "schema": { "type": "string", "example": "C00001" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": { "type": "string", "example": "cKq...A:APA91bF-O...Y-3" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM Token berhasil terdaftar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "message": { "type": "string", "example": "FCM Token berhasil terdaftar" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/recommendations": {
+      "post": {
+        "summary": "Membuat rekomendasi dummy (untuk testing)",
+        "tags": ["Recommendation"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": { "type": "string", "example": "C00001" },
+                  "type": { "type": "string", "example": "DATA_BOOSTER" },
+                  "offer_name": { "type": "string", "example": "Paket Data 10GB" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rekomendasi berhasil dibuat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": { "$ref": "#/components/schemas/Recommendation" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/recommendations/{customerId}/send-adaptive": {
+      "post": {
+        "summary": "Memicu notifikasi adaptif (Fitur 3)",
+        "tags": ["Recommendation"],
+        "parameters": [
+          { "in": "path", "name": "customerId", "required": true, "schema": { "type": "string", "example": "C00001" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notifikasi berhasil dikirim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "message": { "type": "string", "example": "Notifikasi adaptif berhasil dikirim." },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "recommendation_id": { "type": "string", "example": "673e4f..." },
+                        "email_sent": { "type": "boolean", "example": true },
+                        "push_sent": { "type": "boolean", "example": false }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFoundErrorResponse" },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "summary": "Ambil Semua Produk (Katalog)",
+        "tags": ["Product"],
+        "parameters": [
+          { "in": "query", "name": "category", "schema": { "type": "string" }, "description": "Filter kategori" }
+        ],
+        "responses": {
+          "200": { "description": "List Produk", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Product" } } } } }
+        }
+      },
+      "post": {
+        "summary": "Tambah Produk Baru (Admin)",
+        "tags": ["Product"],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } }
+        },
+        "responses": { "201": { "description": "Produk dibuat" } }
+      }
+    },
+    "/products/{id}": {
+      "get": { "summary": "Detail Produk", "tags": ["Product"], "parameters": [{"in":"path","name":"id","required":true}], "responses": { "200": { "description": "OK" } } },
+      "patch": { "summary": "Update Produk", "tags": ["Product"], "parameters": [{"in":"path","name":"id","required":true}], "responses": { "200": { "description": "OK" } } },
+      "delete": { "summary": "Hapus Produk", "tags": ["Product"], "parameters": [{"in":"path","name":"id","required":true}], "responses": { "200": { "description": "OK" } } }
+    },
+    "/chatbot/message": {
+      "post": {
+        "summary": "Mengirim pesan ke chatbot (Fitur 4)",
+        "tags": ["Chatbot"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customerId": { "type": "string", "example": "C00001" },
+                  "message": { "type": "string", "example": "Halo, ada rekomendasi?" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Balasan dari chatbot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "customerId": { "type": "string", "example": "C00001" },
+                    "reply": { "type": "string", "example": "Halo C00001! Kebetulan kami punya..." }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestErrorResponse" },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/reports/churn": {
+      "get": {
+        "summary": "Laporan agregat Churn (Fitur 5)",
+        "tags": ["Report"],
+        "responses": {
+          "200": {
+            "description": "Data laporan churn (Array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "segment": { "type": "string", "example": "Low" },
+                          "count": { "type": "integer", "example": 10 }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/reports/recommendations": {
+      "get": {
+        "summary": "Laporan agregat Rekomendasi (Fitur 5)",
+        "tags": ["Report"],
+        "responses": {
+          "200": {
+            "description": "Data laporan rekomendasi (Array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": { "type": "string", "example": "PENDING" },
+                          "count": { "type": "integer", "example": 3 }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/reports/usage": {
+      "get": {
+        "summary": "Laporan agregat Penggunaan (Fitur 5)",
+        "tags": ["Report"],
+        "responses": {
+          "200": {
+            "description": "Data laporan penggunaan (Array)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "segment": { "type": "string", "example": "High" },
+                          "totalCustomers": { "type": "integer", "example": 6 },
+                          "avgDataUsage": { "type": "number", "example": 65.83 },
+                          "avgMonthlySpend": { "type": "number", "example": 820000 }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+        }
+      }
+    },
+    "/reports/dashboard": {
+    "get": {
+      "summary": "SUPER-ENDPOINT: Mengambil semua data agregat dashboard",
+      "tags": ["Report"],
+      "responses": {
+        "200": {
+          "description": "Objek data agregat untuk semua chart dashboard",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "example": "success" },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "churnStatus": { "type": "array", "items": { "type": "object" } },
+                      "recoStatus": { "type": "array", "items": { "type": "object" } },
+                      "recoType": { "type": "array", "items": { "type": "object" } },
+                      "topChurnFactors": { "type": "array", "items": { "type": "object" } },
+                      "churnPerSegment": { "type": "array", "items": { "type": "object" } },
+                      "topDevices": { "type": "array", "items": { "type": "object" } },
+                      "planType": { "type": "array", "items": { "type": "object" } },
+                      "offerSentHistory": { "type": "array", "items": { "type": "object" } }
+                    },
+                    "example": {
+                      "churnStatus": [ { "segment": "Low", "count": 10 }, { "segment": "Medium", "count": 5 } ],
+                      "recoStatus": [ { "_id": "PENDING", "count": 3 }, { "_id": "SENT", "count": 5 } ],
+                      "recoType": [ { "type": "CHURN_PREVENTION", "count": 3 }, { "type": "UPSELL", "count": 2 } ],
+                      "topChurnFactors": [ { "factor": "Price sensitive", "count": 3 }, { "factor": "High complaint count", "count": 2 } ],
+                      "churnPerSegment": [ { "segment": "High", "avgChurnRisk": 0.4 }, { "segment": "Low", "avgChurnRisk": 0.1 } ],
+                      "topDevices": [ { "device": "Samsung", "count": 4 }, { "device": "iPhone", "count": 4 } ],
+                      "planType": [ { "plan": "Prepaid", "count": 14 }, { "plan": "Postpaid", "count": 6 } ],
+                      "offerSentHistory": [ { "date": "2025-11-12", "count": 3 }, { "date": "2025-11-13", "count": 2 } ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/UnauthorizedErrorResponse" }
+      }
+    }
+  }
+  }
+}
