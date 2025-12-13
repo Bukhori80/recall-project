@@ -129,8 +129,9 @@ ml_services/
 └── ...
 ```
 
-**If model files are missing**, contact the ML team to obtain trained models.
-
+**Note:** These model files are **pre-trained and included in the repository**. You do not need to download them from an external link.
+- `telco_pipeline_model.pkl`: Recommendation model pipeline
+- `rf_churn_risk_model.pkl`: Random Forest churn model
 ---
 
 ## 🚀 Running the Service
