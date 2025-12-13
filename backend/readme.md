@@ -197,6 +197,11 @@ EMAIL_HOST=smtp.ethereal.email
 EMAIL_PORT=587
 EMAIL_USER=your-ethereal-email@ethereal.email
 EMAIL_PASS=your-ethereal-password
+
+# Model ML
+ML_SERVICE_URL=your_production_ml_services_link
+ML_SERVICE_URL_DEV=http://localhost:5000
+
 ```
 
 #### Configuration Details:

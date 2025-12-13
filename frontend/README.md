@@ -137,7 +137,7 @@ Create a `.env` file in the frontend root directory:
 VITE_API_URL=http://localhost:3001/api/v1
 
 # Google Gemini AI Configuration
-GEMINI_API_KEY=your_gemini_api_key_here
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 **Getting Gemini API Key:**

@@ -307,13 +307,17 @@ EMAIL_HOST=smtp.sendgrid.net
 EMAIL_PORT=587
 EMAIL_USER=apikey
 EMAIL_PASS=your_sendgrid_api_key
+
+# Model ML
+ML_SERVICE_URL=your_production_ml_services_link
+ML_SERVICE_URL_DEV=http://localhost:5000
 ```
 
 ### Frontend (.env)
 
 ```env
 VITE_API_URL=http://localhost:3001/api/v1
-GEMINI_API_KEY=your_gemini_api_key
+VITE_GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ### ML Services

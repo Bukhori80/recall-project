@@ -197,6 +197,10 @@ EMAIL_HOST=smtp.ethereal.email
 EMAIL_PORT=587
 EMAIL_USER=email-ethereal-anda@ethereal.email
 EMAIL_PASS=password-ethereal-anda
+
+# Model ML
+ML_SERVICE_URL=link produksi ml service kamu
+ML_SERVICE_URL_DEV=http://localhost:5000
 ```
 
 #### Detail Konfigurasi:

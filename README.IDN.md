@@ -307,13 +307,17 @@ EMAIL_HOST=smtp.sendgrid.net
 EMAIL_PORT=587
 EMAIL_USER=apikey
 EMAIL_PASS=sendgrid_api_key_anda
+
+# Model ML
+ML_SERVICE_URL=link produksi ml service kamu
+ML_SERVICE_URL_DEV=http://localhost:5000
 ```
 
 ### Frontend (.env)
 
 ```env
 VITE_API_URL=http://localhost:3001/api/v1
-GEMINI_API_KEY=gemini_api_key_anda
+VITE_GEMINI_API_KEY=gemini_api_key_anda
 ```
 
 ### ML Services
