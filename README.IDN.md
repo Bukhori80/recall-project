@@ -11,8 +11,6 @@
 > **Tema:** Retensi Pelanggan Telekomunikasi  
 > **Program:** ASAH 2025
 
-> **Link Model:** https://s.id/Model_Recommendation
-
 > **Link Model Recommendation:** https://s.id/Model_Recommendation
 
 > **Link Model Churn:** https://s.id/8ggdf

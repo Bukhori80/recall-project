@@ -11,8 +11,6 @@
 > **Theme:**  Telco - Product Recommendation Offer based on Customer Behaviour 
 > **Program:** Asah led by Dicoding
 
-> **Link Model:** https://s.id/Model_Recommendation
-
 > **Link Model Recommendation:** https://s.id/Model_Recommendation
 
 > **Link Model Churn:** https://s.id/8ggdf
